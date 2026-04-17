@@ -123,3 +123,8 @@ actual.config.js
 
 # Mac App Store provisioning profiles, downloaded per machine
 packages/desktop-electron/mas/*.provisionprofile
+
+# sanitaize
+project_export.*
+*.zip
+.codex
