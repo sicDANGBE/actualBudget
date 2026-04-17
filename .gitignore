@@ -92,3 +92,9 @@ storybook-static
 .actualrc.yaml
 .actualrc.yml
 actual.config.js
+
+
+# sanitaize
+project_export.*
+*.zip
+.codex
