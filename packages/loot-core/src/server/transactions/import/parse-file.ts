@@ -60,6 +60,7 @@ type Transaction = StructuredTransaction | CsvTransaction;
 
 type ParseError = { message: string; internal: string };
 export type ParseFileResult = {
+  balance?: number | null;
   errors: ParseError[];
   transactions?: Transaction[];
 };
@@ -176,6 +177,7 @@ async function parseQIF(
   const swap = options.swapPayeeAndMemo;
 
   return {
+    balance: null,
     errors: [],
     transactions: data.transactions
       .map(trans => {
@@ -221,6 +223,7 @@ async function parseOFX(
   const swap = options.swapPayeeAndMemo;
 
   return {
+    balance: data.balance,
     errors,
     transactions: data.transactions.map(trans => {
       const parsedAmount = parseOfxAmount(trans.amount);
@@ -269,8 +272,9 @@ async function parseCAMT(
   const swap = options.swapPayeeAndMemo;
 
   return {
+    balance: data.balance,
     errors,
-    transactions: data.map(trans => {
+    transactions: data.transactions.map(trans => {
       const payeeSource = swap ? trans.notes : trans.payee_name;
       const memoSource = swap ? trans.payee_name : trans.notes;
       const fallbackUsed = !payeeSource && swap;

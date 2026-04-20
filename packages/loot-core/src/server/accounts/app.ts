@@ -47,6 +47,8 @@ type LinkAccountBaseParams = {
   startingBalance?: number;
 };
 
+type ImportedAccountTransaction = Omit<ImportTransactionEntity, 'account'>;
+
 export type AccountHandlers = {
   'account-update': typeof updateAccount;
   'accounts-get': typeof getAccounts;
@@ -369,11 +371,15 @@ async function createAccount({
   balance = 0,
   offBudget = false,
   closed = false,
+  importedBalance,
+  importedTransactions,
 }: {
   name: string;
   balance?: number | undefined;
   offBudget?: boolean | undefined;
   closed?: boolean | undefined;
+  importedBalance?: number | undefined;
+  importedTransactions?: ImportedAccountTransaction[] | undefined;
 }) {
   const id: AccountEntity['id'] = await db.insertAccount({
     name,
@@ -386,7 +392,49 @@ async function createAccount({
     transfer_acct: id,
   });
 
-  if (balance != null && balance !== 0) {
+  const hasImportedTransactions =
+    importedTransactions != null && importedTransactions.length > 0;
+  const hasImportedBalance = importedBalance != null;
+
+  if (hasImportedTransactions || hasImportedBalance) {
+    const payee = await getStartingBalancePayee();
+    const totalImportedAmount =
+      importedTransactions?.reduce(
+        (sum, transaction) => sum + (transaction.amount ?? 0),
+        0,
+      ) ?? 0;
+    const startingBalanceAmount =
+      amountToInteger(importedBalance ?? 0) - totalImportedAmount;
+    const startingBalanceDate =
+      importedTransactions
+        ?.map(transaction => transaction.date)
+        .filter((date): date is string => typeof date === 'string')
+        .sort()[0] ?? monthUtils.currentDay();
+
+    if (startingBalanceAmount !== 0) {
+      await db.insertTransaction({
+        account: id,
+        amount: startingBalanceAmount,
+        category: offBudget ? null : payee.category,
+        payee: payee.id,
+        date: startingBalanceDate,
+        cleared: true,
+        starting_balance_flag: true,
+      });
+    }
+
+    if (hasImportedTransactions) {
+      const importResult = await importTransactions({
+        accountId: id,
+        transactions: importedTransactions,
+        isPreview: false,
+      });
+
+      if (importResult.errors.length > 0) {
+        throw APIError(importResult.errors[0].message);
+      }
+    }
+  } else if (balance != null && balance !== 0) {
     const payee = await getStartingBalancePayee();
 
     await db.insertTransaction({
@@ -1156,7 +1204,7 @@ async function importTransactions({
   opts,
 }: {
   accountId: AccountEntity['id'];
-  transactions: ImportTransactionEntity[];
+  transactions: ImportedAccountTransaction[];
   isPreview: boolean;
   opts?: ImportTransactionsOpts;
 }): Promise<ImportTransactionsResult> {

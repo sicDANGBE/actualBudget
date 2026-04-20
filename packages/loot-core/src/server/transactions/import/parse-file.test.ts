@@ -89,13 +89,19 @@ describe('File import', () => {
     await prefs.loadPrefs();
     await db.insertAccount({ id: 'one', name: 'one' });
 
-    const { errors } = await importFileWithRealTime(
+    const { balance } = await parseFile(
+      __dirname + '/../../../mocks/files/data.ofx',
+      { importNotes: true },
+    );
+    expect(balance).toBe(12798.01);
+
+    const { errors: importErrors } = await importFileWithRealTime(
       'one',
       __dirname + '/../../../mocks/files/data.ofx',
       null,
       { importNotes: true },
     );
-    expect(errors.length).toBe(0);
+    expect(importErrors.length).toBe(0);
     expect(await getTransactions('one')).toMatchSnapshot();
   }, 45000);
 
@@ -212,13 +218,30 @@ describe('File import', () => {
     await prefs.loadPrefs();
     await db.insertAccount({ id: 'one', name: 'one' });
 
-    const { errors } = await importFileWithRealTime(
+    const { balance, errors } = await parseFile(
+      __dirname + '/../../../mocks/files/camt/camt.053.xml',
+      { importNotes: true },
+    );
+    expect(errors.length).toBe(0);
+    expect(balance).toBe(27.61);
+
+    const { errors: importErrors } = await importFileWithRealTime(
       'one',
       __dirname + '/../../../mocks/files/camt/camt.053.xml',
       null,
       { importNotes: true },
     );
-    expect(errors.length).toBe(0);
+    expect(importErrors.length).toBe(0);
     expect(await getTransactions('one')).toMatchSnapshot();
+  });
+
+  test('QIF import does not provide a statement balance', async () => {
+    const { balance, errors } = await parseFile(
+      __dirname + '/../../../mocks/files/data.qif',
+      { importNotes: true },
+    );
+
+    expect(errors.length).toBe(0);
+    expect(balance).toBe(null);
   });
 });

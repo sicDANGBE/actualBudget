@@ -15,6 +15,7 @@ type OFXTransaction = {
 type OFXParseResult = {
   headers: Record<string, unknown>;
   transactions: OFXTransaction[];
+  balance: number | null;
 };
 
 function sgml2Xml(sgml) {
@@ -54,6 +55,49 @@ function getStmtTrn(data) {
   } else {
     return getBankStmtTrn(ofx);
   }
+}
+
+function getStatementResponses(ofx) {
+  if (ofx?.['CREDITCARDMSGSRSV1'] != null) {
+    return getAsArray(ofx?.['CREDITCARDMSGSRSV1']?.['CCSTMTTRNRS'])
+      .map(statement => statement?.['CCSTMTRS'])
+      .filter(Boolean);
+  }
+
+  return getAsArray(ofx?.['BANKMSGSRSV1']?.['STMTTRNRS'])
+    .map(statement => statement?.['STMTRS'])
+    .filter(Boolean);
+}
+
+function parseBalanceAmount(amount: string | null | undefined): number | null {
+  if (amount == null) {
+    return null;
+  }
+
+  const parsed = Number(amount);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getStatementBalance(dataParsed): number | null {
+  const statements = getStatementResponses(dataParsed?.['OFX']);
+
+  for (const statement of statements) {
+    const ledgerBalance = parseBalanceAmount(
+      statement?.['LEDGERBAL']?.['BALAMT'],
+    );
+    if (ledgerBalance != null) {
+      return ledgerBalance;
+    }
+
+    const availableBalance = parseBalanceAmount(
+      statement?.['AVAILBAL']?.['BALAMT'],
+    );
+    if (availableBalance != null) {
+      return availableBalance;
+    }
+  }
+
+  return null;
 }
 
 function getBankStmtTrn(ofx) {
@@ -153,5 +197,6 @@ export async function ofx2json(ofx: string): Promise<OFXParseResult> {
   return {
     headers,
     transactions: getStmtTrn(dataParsed).map(mapOfxTransaction),
+    balance: getStatementBalance(dataParsed),
   };
 }
