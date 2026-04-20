@@ -8,6 +8,7 @@ import type {
   CategoryEntity,
   SyncServerAkahuAccount,
   SyncServerEnableBankingAccount,
+  ImportTransactionEntity,
   SyncServerGoCardlessAccount,
   SyncServerPluggyAiAccount,
   SyncServerSimpleFinAccount,
@@ -60,6 +61,8 @@ type CreateAccountPayload = {
   name: string;
   balance: number;
   offBudget: boolean;
+  importedBalance?: number;
+  importedTransactions?: Array<Omit<ImportTransactionEntity, 'account'>>;
 };
 
 export function useCreateAccountMutation() {
@@ -68,11 +71,19 @@ export function useCreateAccountMutation() {
   const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: async ({ name, balance, offBudget }: CreateAccountPayload) => {
+    mutationFn: async ({
+      name,
+      balance,
+      offBudget,
+      importedBalance,
+      importedTransactions,
+    }: CreateAccountPayload) => {
       const id = await send('account-create', {
         name,
         balance,
         offBudget,
+        importedBalance,
+        importedTransactions,
       });
       return id;
     },

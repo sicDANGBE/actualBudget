@@ -42,6 +42,11 @@ type TransactionCAMT = {
   imported_id?: string;
 };
 
+type CAMTParseResult = {
+  balance: number | null;
+  transactions: TransactionCAMT[];
+};
+
 function findKeys(obj: object, key: string): unknown[] {
   let result = [];
   for (const i in obj) {
@@ -117,9 +122,54 @@ function decodeXmlContent(content: Uint8Array): string {
   return utf8Decoder.decode(content);
 }
 
+function getSignedAmount(balance: {
+  Amt?: Amt;
+  CdtDbtInd?: 'CRDT' | 'DBIT';
+}): number | null {
+  const amount = convertToNumberOrNull(balance?.Amt?._);
+  if (amount == null) {
+    return null;
+  }
+
+  return balance?.CdtDbtInd === 'DBIT' ? -amount : amount;
+}
+
+function getBalanceCode(balance: {
+  Tp?: { CdOrPrtry?: { Cd?: string } };
+}): string | null {
+  return balance?.Tp?.CdOrPrtry?.Cd ?? null;
+}
+
+function getStatementBalance(data: unknown): number | null {
+  const balances = findKeys(data as object, 'Bal') as Array<{
+    Tp?: { CdOrPrtry?: { Cd?: string } };
+    Amt?: Amt;
+    CdtDbtInd?: 'CRDT' | 'DBIT';
+  }>;
+
+  const preferredCodes = ['CLBD', 'CLAV', 'PRCD'];
+
+  for (const code of preferredCodes) {
+    const match = balances.find(balance => getBalanceCode(balance) === code);
+    const signedAmount = match ? getSignedAmount(match) : null;
+    if (signedAmount != null) {
+      return signedAmount;
+    }
+  }
+
+  for (const balance of balances) {
+    const signedAmount = getSignedAmount(balance);
+    if (signedAmount != null) {
+      return signedAmount;
+    }
+  }
+
+  return null;
+}
+
 export async function xmlCAMT2json(
   content: string | Uint8Array,
-): Promise<TransactionCAMT[]> {
+): Promise<CAMTParseResult> {
   const data = await parseStringPromise(
     content instanceof Uint8Array ? decodeXmlContent(content) : content,
     { explicitArray: false },
@@ -187,7 +237,11 @@ export async function xmlCAMT2json(
       transactions.push(transaction);
     }
   }
-  return transactions.filter(
-    trans => trans.date != null && trans.amount != null,
-  );
+
+  return {
+    balance: getStatementBalance(data),
+    transactions: transactions.filter(
+      trans => trans.date != null && trans.amount != null,
+    ),
+  };
 }
