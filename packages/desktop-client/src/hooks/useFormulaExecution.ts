@@ -12,6 +12,7 @@ import type {
 } from '@actual-app/core/types/models';
 import { HyperFormula } from 'hyperformula';
 
+import { translateDefaultCategories } from '#budget/defaultCategoryTranslations';
 import { getLiveRange } from '#components/reports/getLiveRange';
 import { calculateTimeRange } from '#components/reports/reportRanges';
 
@@ -669,7 +670,9 @@ async function extractQueryCategories(
   const categoryConditions = extractCategoryConditions(
     queryConfig.conditions || [],
   );
-  const { list: allCategories } = await send('get-categories');
+  const { list: allCategories } = translateDefaultCategories(
+    await send('get-categories'),
+  );
   return getCategoriesFromConditions(
     allCategories,
     categoryConditions,

@@ -7,7 +7,8 @@ export function useBudgetAutomationCategories() {
   const { t } = useTranslation();
   const { data: { grouped } = { grouped: [] } } = useCategories();
   const categories = useMemo(() => {
-    const incomeGroup = grouped.filter(group => group.name === 'Income')[0];
+    const incomeGroup = grouped.find(group => group.is_income);
+
     return [
       {
         id: '',
@@ -21,7 +22,9 @@ export function useBudgetAutomationCategories() {
           },
         ],
       },
-      { ...incomeGroup, name: t('Income categories') },
+      ...(incomeGroup
+        ? [{ ...incomeGroup, name: t('Income categories') }]
+        : []),
     ];
   }, [grouped, t]);
 

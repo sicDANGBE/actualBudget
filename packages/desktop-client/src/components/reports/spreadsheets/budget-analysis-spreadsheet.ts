@@ -6,6 +6,7 @@ import type {
   RuleConditionEntity,
 } from '@actual-app/core/types/models';
 
+import { translateDefaultCategories } from '#budget/defaultCategoryTranslations';
 import type { useSpreadsheet } from '#hooks/useSpreadsheet';
 
 import type { BudgetMonthCell } from './budgetMonthCell';
@@ -47,7 +48,7 @@ export function createBudgetAnalysisSpreadsheet({
   ) => {
     // Get all categories
     const { list: allCategories, grouped: allCategoryGroups } =
-      await send('get-categories');
+      translateDefaultCategories(await send('get-categories'));
 
     // Build a UUID → name map for category groups so text-based operators
     // (contains, doesNotContain, matches) can match against the group name.
