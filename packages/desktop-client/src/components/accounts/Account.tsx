@@ -9,6 +9,7 @@ import { View } from '@actual-app/components/view';
 import { listen, send } from '@actual-app/core/platform/client/connection';
 import * as undo from '@actual-app/core/platform/client/undo';
 import type { UndoState } from '@actual-app/core/server/undo';
+import { isNonProductionEnvironment } from '@actual-app/core/shared/environment';
 import { currentDay } from '@actual-app/core/shared/months';
 import { q } from '@actual-app/core/shared/query';
 import type { Query } from '@actual-app/core/shared/query';
@@ -84,6 +85,19 @@ import { updateNewTransactions } from '#transactions/transactionsSlice';
 
 import { AccountEmptyMessage } from './AccountEmptyMessage';
 import { AccountHeader } from './Header';
+
+const isDevAccountTransactionDebugEnabled = isNonProductionEnvironment();
+
+function logAccountTransactionDebug(
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  if (!isDevAccountTransactionDebugEnabled) {
+    return;
+  }
+
+  console.debug(`[category-debug/ui][Account] ${event}`, payload);
+}
 
 type ConditionEntity = Partial<RuleConditionEntity> | TransactionFilterEntity;
 
@@ -627,6 +641,12 @@ class AccountInternal extends PureComponent<
   };
 
   onTransactionsChange = (updatedTransaction: TransactionEntity) => {
+    logAccountTransactionDebug('onTransactionsChange', {
+      transactionId: updatedTransaction.id,
+      category: updatedTransaction.category,
+      updatedTransaction,
+    });
+
     // Apply changes to pagedQuery data
     this.paged?.optimisticUpdate(data => {
       if (updatedTransaction._deleted) {

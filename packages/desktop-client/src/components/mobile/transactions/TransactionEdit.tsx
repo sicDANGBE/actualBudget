@@ -26,6 +26,7 @@ import { Toggle } from '@actual-app/components/toggle';
 import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import { DEFAULT_MAX_DISTANCE_METERS } from '@actual-app/core/shared/constants';
+import { isNonProductionEnvironment } from '@actual-app/core/shared/environment';
 import { calculateDistance } from '@actual-app/core/shared/location-utils';
 import * as monthUtils from '@actual-app/core/shared/months';
 import * as Platform from '@actual-app/core/shared/platform';
@@ -100,6 +101,19 @@ import { useDispatch, useSelector } from '#redux';
 import { setLastTransaction } from '#transactions/transactionsSlice';
 
 import { FocusableAmountInput } from './FocusableAmountInput';
+
+const isDevCategorySaveDebugEnabled = isNonProductionEnvironment();
+
+function logMobileTransactionCategoryDebug(
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  if (!isDevCategorySaveDebugEnabled) {
+    return;
+  }
+
+  console.debug(`[category-debug/ui][TransactionEditMobile] ${event}`, payload);
+}
 
 function getFieldName(transactionId: TransactionEntity['id'], field: string) {
   return `${field}-${transactionId}`;
@@ -1441,6 +1455,8 @@ function TransactionEditUnconnected({
   const [fetchedTransactions, setFetchedTransactions] = useState<
     TransactionEntity[]
   >([]);
+  const [learnCategories = 'true'] = useSyncedPref('learn-categories');
+  const isLearnCategoriesEnabled = String(learnCategories) === 'true';
   const isAdding = useRef(false);
   const isDeleted = useRef(false);
 
@@ -1547,6 +1563,16 @@ function TransactionEditUnconnected({
       serializedTransaction: TransactionEntity,
       updatedField: keyof TransactionEntity,
     ) => {
+      if (updatedField === 'category') {
+        logMobileTransactionCategoryDebug('onUpdate:start', {
+          transactionId: serializedTransaction.id,
+          currentCategory: serializedTransaction.category,
+          isParent: serializedTransaction.is_parent,
+          isChild: serializedTransaction.is_child,
+          accountId: serializedTransaction.account,
+        });
+      }
+
       const transaction = deserializeTransaction(
         serializedTransaction,
         null,
@@ -1601,6 +1627,13 @@ function TransactionEditUnconnected({
         transactions,
         newTransaction,
       );
+      if (updatedField === 'category') {
+        logMobileTransactionCategoryDebug('onUpdate:updateTransaction', {
+          transactionId: serializedTransaction.id,
+          newTransaction,
+          newTransactions,
+        });
+      }
       setTransactions(newTransactions);
 
       if (updatedField === 'payee') {
@@ -1638,6 +1671,24 @@ function TransactionEditUnconnected({
       }
 
       const changes = diffItems(fetchedTransactions || [], newTransactions);
+      const categoryUpdates = changes.updated.filter(
+        change => 'category' in change,
+      );
+      if (categoryUpdates.length > 0) {
+        logMobileTransactionCategoryDebug('onSave:diffDetected', {
+          updated: categoryUpdates,
+          added: changes.added.filter(change => change.category != null),
+          deleted: changes.deleted,
+          learnCategories: isLearnCategoriesEnabled,
+        });
+      } else {
+        logMobileTransactionCategoryDebug('onSave:noCategoryDiff', {
+          updatedCount: changes.updated.length,
+          addedCount: changes.added.length,
+          deletedCount: changes.deleted.length,
+        });
+      }
+
       if (
         changes.added.length > 0 ||
         changes.updated.length > 0 ||
@@ -1647,7 +1698,14 @@ function TransactionEditUnconnected({
           added: changes.added,
           deleted: changes.deleted,
           updated: changes.updated,
+          learnCategories: isLearnCategoriesEnabled,
         });
+        if (categoryUpdates.length > 0) {
+          logMobileTransactionCategoryDebug('onSave:sent', {
+            updated: categoryUpdates,
+            learnCategories: isLearnCategoriesEnabled,
+          });
+        }
 
         // if (onTransactionsChange) {
         //   onTransactionsChange({
@@ -1663,7 +1721,7 @@ function TransactionEditUnconnected({
         dispatch(setLastTransaction({ transaction: newTransactions[0] }));
       }
     },
-    [dispatch, fetchedTransactions],
+    [dispatch, fetchedTransactions, isLearnCategoriesEnabled],
   );
 
   const onDelete = useCallback(

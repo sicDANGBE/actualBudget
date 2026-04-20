@@ -45,6 +45,7 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { Tooltip } from '@actual-app/components/tooltip';
 import { View } from '@actual-app/components/view';
+import { isNonProductionEnvironment } from '@actual-app/core/shared/environment';
 import * as monthUtils from '@actual-app/core/shared/months';
 import { q } from '@actual-app/core/shared/query';
 import { getStatusLabel } from '@actual-app/core/shared/schedules';
@@ -147,6 +148,19 @@ import type {
   TransactionUpdateFunction,
 } from './table/utils';
 import { TransactionMenu } from './TransactionMenu';
+
+const isDevTransactionCategoryDebugEnabled = isNonProductionEnvironment();
+
+function logTransactionCategoryDebug(
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  if (!isDevTransactionCategoryDebugEnabled) {
+    return;
+  }
+
+  console.debug(`[category-debug/ui][TransactionsTable] ${event}`, payload);
+}
 
 type TransactionHeaderProps = {
   hasSelected: boolean;
@@ -1080,6 +1094,17 @@ const Transaction = memo(function Transaction({
   };
 
   const onUpdateAfterConfirm: TransactionUpdateFunction = (name, value) => {
+    if (name === 'category') {
+      logTransactionCategoryDebug('onUpdateAfterConfirm:start', {
+        transactionId: transaction.id,
+        name,
+        incomingValue: value,
+        currentCategory: transaction.category,
+        accountId: transaction.account,
+        isParent: transaction.is_parent,
+      });
+    }
+
     const newTransaction = { ...transaction, [name]: value };
 
     // Don't change the note to an empty string if it's null (since they are both rendered the same)
@@ -1126,13 +1151,28 @@ const Transaction = memo(function Transaction({
         newTransaction,
         originalTransaction,
       );
+      const deserializedName = ['credit', 'debit'].includes(name)
+        ? 'amount'
+        : name;
+      if (name === 'category') {
+        logTransactionCategoryDebug('onUpdateAfterConfirm:deserialized', {
+          transactionId: transaction.id,
+          deserializedName,
+          newTransaction,
+          deserialized,
+        });
+      }
       // Run the transaction through the formatting so that we know
       // it's always showing the formatted result
       setTransaction(serializeTransaction(deserialized, showZeroInDeposit));
 
-      const deserializedName = ['credit', 'debit'].includes(name)
-        ? 'amount'
-        : name;
+      if (name === 'category') {
+        logTransactionCategoryDebug('onUpdateAfterConfirm:onSave', {
+          transactionId: transaction.id,
+          deserializedName,
+          payload: deserialized,
+        });
+      }
       onSave(deserialized, subtransactions, deserializedName);
     }
   };

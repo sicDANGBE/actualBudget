@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { theme } from '@actual-app/components/theme';
 import { send } from '@actual-app/core/platform/client/connection';
+import { isNonProductionEnvironment } from '@actual-app/core/shared/environment';
 import * as monthUtils from '@actual-app/core/shared/months';
 import { q } from '@actual-app/core/shared/query';
 import { getUpcomingDays } from '@actual-app/core/shared/schedules';
@@ -40,6 +41,16 @@ import { useDispatch } from '#redux';
 
 import { TransactionTable } from './TransactionsTable';
 import type { TransactionTableProps } from './TransactionsTable';
+
+const isDevCategorySaveDebugEnabled = isNonProductionEnvironment();
+
+function logCategorySaveDebug(event: string, payload: Record<string, unknown>) {
+  if (!isDevCategorySaveDebugEnabled) {
+    return;
+  }
+
+  console.debug(`[category-debug/ui][TransactionList] ${event}`, payload);
+}
 // When data changes, there are two ways to update the UI:
 //
 // * Optimistic updates: we apply the needed updates to local data
@@ -61,9 +72,18 @@ import type { TransactionTableProps } from './TransactionsTable';
 // one to use when doing updates.
 
 async function saveDiff(diff, learnCategories) {
+  logCategorySaveDebug('saveDiff:request', {
+    learnCategories,
+    diff,
+  });
   const remoteUpdates = await send('transactions-batch-update', {
     ...diff,
     learnCategories,
+  });
+  logCategorySaveDebug('saveDiff:response', {
+    learnCategories,
+    diff,
+    remoteUpdates,
   });
 
   if (remoteUpdates && remoteUpdates.updated.length > 0) {
@@ -73,7 +93,18 @@ async function saveDiff(diff, learnCategories) {
 }
 
 async function saveDiffAndApply(diff, changes, onChange, learnCategories) {
+  logCategorySaveDebug('saveDiffAndApply:start', {
+    learnCategories,
+    diff,
+    newTransaction: changes.newTransaction,
+  });
   const remoteDiff = await saveDiff(diff, learnCategories);
+  logCategorySaveDebug('saveDiffAndApply:apply', {
+    learnCategories,
+    diff,
+    remoteDiff,
+    newTransaction: changes.newTransaction,
+  });
   onChange(
     // TODO:
     // @ts-expect-error - fix me
@@ -429,16 +460,32 @@ export function TransactionList({
           transactionsLatest.current,
           transaction,
         );
+        logCategorySaveDebug('onSave:updateTransaction', {
+          transactionId: transaction.id,
+          transaction,
+          diff: changes.diff,
+          newTransaction: changes.newTransaction,
+        });
         transactionsLatest.current = changes.data;
 
         if (changes.diff.updated.length > 0) {
           const dateChanged = !!changes.diff.updated[0].date;
+          logCategorySaveDebug('onSave:diffDetected', {
+            transactionId: transaction.id,
+            dateChanged,
+            updatedPatch: changes.diff.updated[0],
+            learnCategories: isLearnCategoriesEnabled,
+          });
           if (dateChanged) {
             changes.diff.updated[0].sort_order = Date.now();
             await saveDiff(changes.diff, isLearnCategoriesEnabled);
             onRefetch();
           } else {
             onChange(changes.newTransaction, changes.data);
+            logCategorySaveDebug('onSave:optimisticOnChange', {
+              transactionId: transaction.id,
+              newTransaction: changes.newTransaction,
+            });
             void saveDiffAndApply(
               changes.diff,
               changes,
@@ -446,6 +493,12 @@ export function TransactionList({
               isLearnCategoriesEnabled,
             );
           }
+        } else {
+          logCategorySaveDebug('onSave:noDiff', {
+            transactionId: transaction.id,
+            transaction,
+            newTransaction: changes.newTransaction,
+          });
         }
       };
 

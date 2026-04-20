@@ -34,6 +34,7 @@ import type { CSSProperties } from '@actual-app/components/styles';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
+import { isNonProductionEnvironment } from '@actual-app/core/shared/environment';
 
 import { useFormat } from '#hooks/useFormat';
 import type { FormatType } from '#hooks/useFormat';
@@ -449,6 +450,17 @@ type CustomCellProps = Omit<ComponentProps<typeof Cell>, 'children'> & {
   onUpdate?: (value: string) => void;
   onBlur?: (ev: UIEvent<unknown>) => void;
 };
+
+const isDevCategoryCellDebugEnabled = isNonProductionEnvironment();
+
+function logCategoryCellDebug(event: string, payload: Record<string, unknown>) {
+  if (!isDevCategoryCellDebugEnabled) {
+    return;
+  }
+
+  console.debug(`[category-debug/ui][CustomCell] ${event}`, payload);
+}
+
 export function CustomCell({
   value: defaultValue,
   children,
@@ -456,12 +468,37 @@ export function CustomCell({
   onBlur,
   ...props
 }: CustomCellProps) {
-  const [value, setValue] = useState(defaultValue);
+  const [, setValue] = useState(defaultValue);
   const [prevDefaultValue, setPrevDefaultValue] = useState(defaultValue);
+  const valueRef = useRef(defaultValue);
+  const skipBlurSaveRef = useRef(false);
+  const isCategoryCell = props.name === 'category';
+
+  function setCurrentValue(nextValue) {
+    if (isCategoryCell) {
+      logCategoryCellDebug('setCurrentValue', {
+        name: props.name,
+        previousValue: valueRef.current,
+        nextValue,
+      });
+    }
+    valueRef.current = nextValue;
+    setValue(nextValue);
+  }
 
   if (prevDefaultValue !== defaultValue) {
+    if (isCategoryCell) {
+      logCategoryCellDebug('defaultValueChanged', {
+        name: props.name,
+        previousDefaultValue: prevDefaultValue,
+        nextDefaultValue: defaultValue,
+        currentValueRef: valueRef.current,
+      });
+    }
+    valueRef.current = defaultValue;
     setValue(defaultValue);
     setPrevDefaultValue(defaultValue);
+    skipBlurSaveRef.current = false;
   }
 
   function onBlur_(e: FocusEvent) {
@@ -469,14 +506,34 @@ export function CustomCell({
     // the app unfocuses, and it's unintuitive to save the value since
     // the input will be focused again when the app regains focus
     if (document.hasFocus()) {
-      onUpdate?.(value);
+      if (isCategoryCell) {
+        logCategoryCellDebug('onBlur', {
+          name: props.name,
+          valueRef: valueRef.current,
+          defaultValue,
+          skipBlurSave: skipBlurSaveRef.current,
+        });
+      }
+      if (skipBlurSaveRef.current) {
+        skipBlurSaveRef.current = false;
+      } else {
+        onUpdate?.(valueRef.current);
+      }
       fireBlur(onBlur, e);
     }
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (shouldSaveFromKey(e)) {
-      onUpdate?.(value);
+      if (isCategoryCell) {
+        logCategoryCellDebug('onKeyDownSave', {
+          name: props.name,
+          key: e.key,
+          valueRef: valueRef.current,
+          defaultValue,
+        });
+      }
+      onUpdate?.(valueRef.current);
     }
   }
 
@@ -486,9 +543,26 @@ export function CustomCell({
         children?.({
           onBlur: onBlur_,
           onKeyDown,
-          onUpdate: val => setValue(val),
+          onUpdate: val => {
+            if (isCategoryCell) {
+              logCategoryCellDebug('childOnUpdate', {
+                name: props.name,
+                value: val,
+                defaultValue,
+              });
+            }
+            setCurrentValue(val);
+          },
           onSave: val => {
-            setValue(val);
+            skipBlurSaveRef.current = true;
+            if (isCategoryCell) {
+              logCategoryCellDebug('childOnSave', {
+                name: props.name,
+                value: val,
+                defaultValue,
+              });
+            }
+            setCurrentValue(val);
             onUpdate?.(val);
           },
           shouldSaveFromKey,
