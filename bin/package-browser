@@ -4,15 +4,7 @@ ROOT=`dirname $0`
 
 cd "$ROOT/.."
 
-echo "Updating translations..."
-if ! [ -d packages/desktop-client/locale ]; then
-    git clone https://github.com/actualbudget/translations packages/desktop-client/locale
-fi
-pushd packages/desktop-client/locale > /dev/null
-git checkout .
-git pull
-popd > /dev/null
-packages/desktop-client/bin/remove-untranslated-languages
+./bin/ensure-translations --update
 
 export NODE_OPTIONS="--max-old-space-size=4096"
 

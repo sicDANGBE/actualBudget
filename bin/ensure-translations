@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+ROOT=`dirname $0`
+UPDATE=false
+
+cd "$ROOT/.."
+
+if [ "${1:-}" == "--update" ]; then
+  UPDATE=true
+fi
+
+if ! [ -d packages/desktop-client/locale/.git ]; then
+  echo "Translations repository not found. Cloning..."
+  git clone https://github.com/actualbudget/translations packages/desktop-client/locale
+elif [ "$UPDATE" == true ]; then
+  echo "Updating translations..."
+  pushd packages/desktop-client/locale > /dev/null
+  git checkout .
+  git pull
+  popd > /dev/null
+fi
+
+if [ -d packages/desktop-client/locale ]; then
+  packages/desktop-client/bin/remove-untranslated-languages
+fi
