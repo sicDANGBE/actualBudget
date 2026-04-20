@@ -57,6 +57,8 @@ import { pushModal } from '#modals/modalsSlice';
 import { useDispatch, useSelector } from '#redux';
 import { getUserData } from '#users/usersSlice';
 
+const EMPTY_FILES: File[] = [];
+
 function getFileDescription(file: File, t: (key: string) => string) {
   if (file.state === 'unknown') {
     return t(
@@ -537,7 +539,8 @@ export function BudgetFileSelection({
   quickSwitchMode = false,
 }: BudgetFileSelectionProps) {
   const dispatch = useDispatch();
-  const allFiles = useSelector(state => state.budgetfiles.allFiles || []);
+  const allFiles =
+    useSelector(state => state.budgetfiles.allFiles) ?? EMPTY_FILES;
   const multiuserEnabled = useMultiuserEnabled();
   const [id] = useMetadataPref('id');
   const [currentUserId, setCurrentUserId] = useState('');
@@ -727,7 +730,8 @@ type UserAccessForFileProps = {
 function UserAccessForFile({ fileId, currentUserId }: UserAccessForFileProps) {
   const { t } = useTranslation();
 
-  const allFiles = useSelector(state => state.budgetfiles.allFiles || []);
+  const allFiles =
+    useSelector(state => state.budgetfiles.allFiles) ?? EMPTY_FILES;
   const remoteFiles = allFiles.filter(
     f => f.state === 'remote' || f.state === 'synced' || f.state === 'detached',
   ) as (SyncedLocalFile | RemoteFile)[];

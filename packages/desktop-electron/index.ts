@@ -39,7 +39,10 @@ const isPlaywrightTest = process.env.EXECUTION_CONTEXT === 'playwright';
 const isDev = !isPlaywrightTest && !app.isPackaged; // dev mode if not packaged and not playwright
 
 process.env.lootCoreScript = isDev
-  ? 'loot-core/lib-dist/electron/bundle.desktop.js' // serve from local output in development (provides hot-reloading)
+  ? path.resolve(
+      BUILD_ROOT,
+      '../../loot-core/lib-dist/electron/bundle.desktop.js',
+    ) // serve from local output in development (provides hot-reloading)
   : path.resolve(BUILD_ROOT, 'loot-core/lib-dist/electron/bundle.desktop.js'); // serve from build in production
 
 // This allows relative URLs to be resolved to app:// which makes

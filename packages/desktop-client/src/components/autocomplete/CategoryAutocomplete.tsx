@@ -414,7 +414,10 @@ function SplitTransactionButton({
 function defaultRenderSplitTransactionButton(
   props: SplitTransactionButtonProps,
 ): ReactElement<typeof SplitTransactionButton> {
-  return <SplitTransactionButton {...props} />;
+  const { key, ...rest } = props as SplitTransactionButtonProps & {
+    key?: string;
+  };
+  return <SplitTransactionButton key={key} {...rest} />;
 }
 
 type CategoryItemProps = {

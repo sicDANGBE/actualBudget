@@ -3,13 +3,19 @@ import type { ReactElement } from 'react';
 import { Trans } from 'react-i18next';
 
 import { View } from '@actual-app/components/view';
-import type { RemoteFile, SyncedLocalFile } from '@actual-app/core/types/file';
+import type {
+  File,
+  RemoteFile,
+  SyncedLocalFile,
+} from '@actual-app/core/types/file';
 
 import { useMetadataPref } from '#hooks/useMetadataPref';
 import { useSelector } from '#redux';
 
 import { useAuth } from './AuthProvider';
 import type { Permissions } from './types';
+
+const EMPTY_FILES: File[] = [];
 
 type ProtectedRouteProps = {
   permission: Permissions;
@@ -25,7 +31,8 @@ export const ProtectedRoute = ({
   const { hasPermission } = useAuth();
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [cloudFileId] = useMetadataPref('cloudFileId');
-  const allFiles = useSelector(state => state.budgetfiles.allFiles || []);
+  const allFiles =
+    useSelector(state => state.budgetfiles.allFiles) ?? EMPTY_FILES;
   const remoteFiles = allFiles.filter(
     (f): f is SyncedLocalFile | RemoteFile =>
       f.state === 'remote' || f.state === 'synced' || f.state === 'detached',

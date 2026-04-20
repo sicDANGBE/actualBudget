@@ -11,7 +11,11 @@ import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import { getUserAccessErrors } from '@actual-app/core/shared/errors';
 import type { Budget } from '@actual-app/core/types/budget';
-import type { RemoteFile, SyncedLocalFile } from '@actual-app/core/types/file';
+import type {
+  File,
+  RemoteFile,
+  SyncedLocalFile,
+} from '@actual-app/core/types/file';
 import type { Handlers } from '@actual-app/core/types/handlers';
 
 import { closeAndLoadBudget } from '#budgetfiles/budgetfilesSlice';
@@ -22,6 +26,8 @@ import { popModal } from '#modals/modalsSlice';
 import type { Modal as ModalType } from '#modals/modalsSlice';
 import { addNotification } from '#notifications/notificationsSlice';
 import { useDispatch, useSelector } from '#redux';
+
+const EMPTY_FILES: File[] = [];
 
 type TransferOwnershipProps = Extract<
   ModalType,
@@ -38,7 +44,8 @@ export function TransferOwnership({
   const [error, setError] = useState<string | null>(null);
   const [availableUsers, setAvailableUsers] = useState<[string, string][]>([]);
   const [cloudFileId] = useMetadataPref('cloudFileId');
-  const allFiles = useSelector(state => state.budgetfiles.allFiles || []);
+  const allFiles =
+    useSelector(state => state.budgetfiles.allFiles) ?? EMPTY_FILES;
   const remoteFiles = allFiles.filter(
     f => f.state === 'remote' || f.state === 'synced' || f.state === 'detached',
   ) as (SyncedLocalFile | RemoteFile)[];
