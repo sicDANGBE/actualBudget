@@ -20,6 +20,7 @@ import type {
   TransactionEntity,
 } from '@actual-app/core/types/models';
 
+import { useSyncedPref } from '#hooks/useSyncedPref';
 import { pushModal } from '#modals/modalsSlice';
 import type {
   ConfirmTransactionEditReason,
@@ -78,6 +79,8 @@ type BatchUnlinkScheduleProps = {
 export function useTransactionBatchActions() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const [learnCategories = 'true'] = useSyncedPref('learn-categories');
+  const isLearnCategoriesEnabled = String(learnCategories) === 'true';
 
   const onBatchEdit = async ({ name, ids, onSuccess }: BatchEditProps) => {
     const { data } = await aqlQuery(
@@ -178,7 +181,10 @@ export function useTransactionBatchActions() {
           : diff.added;
       });
 
-      await send('transactions-batch-update', changes);
+      await send('transactions-batch-update', {
+        ...changes,
+        learnCategories: isLearnCategoriesEnabled,
+      });
 
       onSuccess?.(ids, name, value, mode);
     };
@@ -309,7 +315,10 @@ export function useTransactionBatchActions() {
         ),
       };
 
-      await send('transactions-batch-update', changes);
+      await send('transactions-batch-update', {
+        ...changes,
+        learnCategories: isLearnCategoriesEnabled,
+      });
 
       onSuccess?.(ids);
     };
@@ -381,7 +390,10 @@ export function useTransactionBatchActions() {
                     : diff.updated;
                 });
 
-                await send('transactions-batch-update', changes);
+                await send('transactions-batch-update', {
+                  ...changes,
+                  learnCategories: isLearnCategoriesEnabled,
+                });
                 onSuccess?.(ids);
               },
             },
@@ -436,7 +448,10 @@ export function useTransactionBatchActions() {
         id => ({ id, schedule: null }) as unknown as Partial<TransactionEntity>,
       ),
     };
-    await send('transactions-batch-update', changes);
+    await send('transactions-batch-update', {
+      ...changes,
+      learnCategories: isLearnCategoriesEnabled,
+    });
     onSuccess?.(ids);
   };
 
@@ -574,7 +589,10 @@ export function useTransactionBatchActions() {
           runTransfers: false,
         };
 
-        await send('transactions-batch-update', changes);
+        await send('transactions-batch-update', {
+          ...changes,
+          learnCategories: isLearnCategoriesEnabled,
+        });
       }
 
       onSuccess?.(ids);

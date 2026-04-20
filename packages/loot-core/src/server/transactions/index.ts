@@ -1,14 +1,27 @@
 // @ts-strict-ignore
 
 import * as connection from '#platform/server/connection';
+import { logger } from '#platform/server/log';
 import * as db from '#server/db';
 import { incrFetch, whereIn } from '#server/db/util';
 import { batchMessages } from '#server/sync';
+import { isNonProductionEnvironment } from '#shared/environment';
 import type { Diff } from '#shared/util';
 import type { PayeeEntity, TransactionEntity } from '#types/models';
 
 import * as rules from './transaction-rules';
 import * as transfer from './transfer';
+
+function logTransactionCategoryServerDebug(
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  if (!isNonProductionEnvironment()) {
+    return;
+  }
+
+  logger.debug(`[category-debug/server][transactions] ${event}`, payload);
+}
 
 async function idsWithChildren(ids: string[]) {
   const whereIds = whereIn(ids, 'parent_id');
@@ -35,6 +48,65 @@ async function getTransactionsByIds(
     id => `id = '${id}'`,
     where => `SELECT * FROM v_transactions_internal WHERE ${where}`,
   );
+}
+
+async function resolveTransactionReferenceIds(
+  transaction: Partial<TransactionEntity>,
+) {
+  let mappedCategory = transaction.category;
+  let mappedPayee = transaction.payee;
+
+  if (mappedCategory != null) {
+    const categoryMapping = await db.first<Pick<db.DbCategoryMapping, 'id'>>(
+      'SELECT id FROM category_mapping WHERE transferId = ?',
+      [mappedCategory],
+    );
+
+    if (categoryMapping?.id) {
+      mappedCategory = categoryMapping.id;
+    } else {
+      const category = await db.first<Pick<db.DbCategory, 'id'>>(
+        'SELECT id FROM categories WHERE id = ? AND tombstone = 0',
+        [mappedCategory],
+      );
+
+      if (category?.id) {
+        await db.insert('category_mapping', {
+          id: category.id,
+          transferId: category.id,
+        });
+      }
+    }
+  }
+
+  if (mappedPayee != null) {
+    const payeeMapping = await db.first<Pick<db.DbPayeeMapping, 'id'>>(
+      'SELECT id FROM payee_mapping WHERE targetId = ?',
+      [mappedPayee],
+    );
+
+    if (payeeMapping?.id) {
+      mappedPayee = payeeMapping.id;
+    } else {
+      const payee = await db.first<Pick<db.DbPayee, 'id'>>(
+        'SELECT id FROM payees WHERE id = ? AND tombstone = 0',
+        [mappedPayee],
+      );
+
+      if (payee?.id) {
+        await db.insert('payee_mapping', {
+          id: payee.id,
+          targetId: payee.id,
+        });
+      }
+    }
+  }
+
+  return {
+    ...transaction,
+    ...(transaction.category !== undefined ? { category: mappedCategory } : {}),
+    ...(transaction.payee !== undefined ? { payee: mappedPayee } : {}),
+  };
 }
 
 export async function batchUpdateTransactions({
@@ -67,6 +139,15 @@ export async function batchUpdateTransactions({
     ? await db.all<db.DbAccount>('SELECT * FROM accounts WHERE tombstone = 0')
     : [];
 
+  logTransactionCategoryServerDebug('batchUpdateTransactions:request', {
+    learnCategories,
+    detectOrphanPayees,
+    runTransfers,
+    added,
+    updated,
+    deleted,
+  });
+
   // We need to get all the payees of updated transactions _before_
   // making changes
   if (updated) {
@@ -87,12 +168,37 @@ export async function batchUpdateTransactions({
     if (added) {
       addedIds = await Promise.all(
         added.map(async t => {
+          const resolvedTransaction = await resolveTransactionReferenceIds(t);
+
           // Offbudget account transactions and parent transactions should not have categories.
-          const account = accounts.find(acct => acct.id === t.account);
-          if (t.is_parent || account?.offbudget === 1) {
-            t.category = null;
+          const account = accounts.find(
+            acct => acct.id === resolvedTransaction.account,
+          );
+          logTransactionCategoryServerDebug(
+            'batchUpdateTransactions:add:before',
+            {
+              transactionId: resolvedTransaction.id,
+              accountId: resolvedTransaction.account,
+              offbudget: account?.offbudget === 1,
+              isParent: resolvedTransaction.is_parent,
+              category: resolvedTransaction.category,
+              originalCategory: t.category,
+              originalPayee: t.payee,
+              transaction: resolvedTransaction,
+            },
+          );
+          if (resolvedTransaction.is_parent || account?.offbudget === 1) {
+            resolvedTransaction.category = null;
           }
-          return db.insertTransaction(t);
+          logTransactionCategoryServerDebug(
+            'batchUpdateTransactions:add:after',
+            {
+              transactionId: resolvedTransaction.id,
+              category: resolvedTransaction.category,
+              transaction: resolvedTransaction,
+            },
+          );
+          return db.insertTransaction(resolvedTransaction);
         }),
       );
     }
@@ -112,16 +218,66 @@ export async function batchUpdateTransactions({
     if (updated) {
       await Promise.all(
         updated.map(async t => {
-          if (t.account) {
+          const resolvedTransaction = await resolveTransactionReferenceIds(t);
+          const originalTransaction =
+            await db.first<db.DbViewTransactionInternal>(
+              'SELECT * FROM v_transactions_internal WHERE id = ?',
+              [resolvedTransaction.id],
+            );
+          logTransactionCategoryServerDebug(
+            'batchUpdateTransactions:update:before',
+            {
+              transactionId: resolvedTransaction.id,
+              patch: resolvedTransaction,
+              originalPatch: t,
+              originalCategory: originalTransaction?.category,
+              originalAccountId: originalTransaction?.account,
+              originalTransaction,
+            },
+          );
+          if (resolvedTransaction.account) {
             // Moving transactions off budget should always clear the
             // category. Parent transactions should not have categories.
-            const account = accounts.find(acct => acct.id === t.account);
-            if (t.is_parent || account?.offbudget === 1) {
-              t.category = null;
+            const account = accounts.find(
+              acct => acct.id === resolvedTransaction.account,
+            );
+            logTransactionCategoryServerDebug(
+              'batchUpdateTransactions:update:accountCheck',
+              {
+                transactionId: resolvedTransaction.id,
+                accountId: resolvedTransaction.account,
+                offbudget: account?.offbudget === 1,
+                isParent: resolvedTransaction.is_parent,
+                categoryBeforeNormalization: resolvedTransaction.category,
+              },
+            );
+            if (resolvedTransaction.is_parent || account?.offbudget === 1) {
+              resolvedTransaction.category = null;
             }
           }
 
-          await db.updateTransaction(t);
+          logTransactionCategoryServerDebug(
+            'batchUpdateTransactions:update:write',
+            {
+              transactionId: resolvedTransaction.id,
+              patch: resolvedTransaction,
+            },
+          );
+          await db.updateTransaction(resolvedTransaction);
+          const persistedTransaction =
+            await db.first<db.DbViewTransactionInternal>(
+              'SELECT * FROM v_transactions_internal WHERE id = ?',
+              [resolvedTransaction.id],
+            );
+          logTransactionCategoryServerDebug(
+            'batchUpdateTransactions:update:afterWrite',
+            {
+              transactionId: resolvedTransaction.id,
+              persistedCategory: persistedTransaction?.category,
+              persistedTransferId: persistedTransaction?.transfer_id,
+              persistedTransaction,
+            },
+          );
         }),
       );
     }
@@ -150,6 +306,15 @@ export async function batchUpdateTransactions({
   const allUpdated = pickTransactions(updatedIds);
   const allDeleted = pickTransactions(deletedIds);
 
+  logTransactionCategoryServerDebug('batchUpdateTransactions:postWrite', {
+    addedIds,
+    updatedIds,
+    deletedIds,
+    allAdded,
+    allUpdated,
+    allDeleted,
+  });
+
   // Post-processing phase: first do any updates to transfers.
   // Transfers update the transactions and we need to return updates
   // to the client so that can apply them. Note that added
@@ -166,6 +331,12 @@ export async function batchUpdateTransactions({
       transfersUpdated = (
         await Promise.all(allUpdated.map(t => transfer.onUpdate(t)))
       ).filter(Boolean);
+      logTransactionCategoryServerDebug(
+        'batchUpdateTransactions:transferUpdates',
+        {
+          transfersUpdated,
+        },
+      );
 
       await Promise.all(allDeleted.map(t => transfer.onDelete(t)));
     });
@@ -182,6 +353,15 @@ export async function batchUpdateTransactions({
     ]);
     await rules.updateCategoryRules(
       allAdded.concat(allUpdated).filter(trans => ids.has(trans.id)),
+    );
+    logTransactionCategoryServerDebug(
+      'batchUpdateTransactions:learnCategories',
+      {
+        ids: [...ids],
+        learnedTransactions: allAdded
+          .concat(allUpdated)
+          .filter(trans => ids.has(trans.id)),
+      },
     );
   }
 
