@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2022"],
+    "types": ["node", "vitest/globals"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "allowJs": false,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "plugins": [{ "name": "typescript-strict-plugin", "paths": ["."] }]
+  },
+  "references": [],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "coverage"]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@actual-app/enablebanking-bridge",
+  "version": "26.4.0",
+  "private": true,
+  "description": "Local Enable Banking bridge for Actual Budget",
+  "license": "MIT",
+  "bin": {
+    "actual-enablebanking-bridge": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "ARCHITECTURE.md"
+  ],
+  "type": "module",
+  "imports": {
+    "#*": {
+      "types": "./src/*.ts",
+      "development": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -b",
+    "build:actual-api": "yarn workspace @actual-app/api build",
+    "typecheck": "tsgo -b",
+    "test": "vitest --run --config vitest.config.ts",
+    "serve": "yarn build:actual-api && yarn build && node dist/cli.js serve",
+    "bootstrap": "yarn build && node dist/cli.js bootstrap",
+    "sync": "yarn build:actual-api && yarn build && node dist/cli.js sync",
+    "sync-all": "yarn build:actual-api && yarn build && node dist/cli.js sync-all",
+    "check": "yarn build && node dist/cli.js check",
+    "print-cert": "yarn build && node dist/cli.js print-cert",
+    "test-auth": "yarn build && node dist/cli.js test-auth"
+  },
+  "dependencies": {
+    "@actual-app/api": "workspace:*",
+    "better-sqlite3": "^12.6.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.15",
+    "@typescript/native-preview": "^7.0.0-dev.20260309.1",
+    "typescript-strict-plugin": "^2.4.4",
+    "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

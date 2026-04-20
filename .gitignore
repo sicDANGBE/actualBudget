@@ -15,6 +15,15 @@ export-2020-01-10.csv
 
 # JavaScript
 node_modules
+
+# Local Enable Banking bridge material. Never commit generated keys,
+# certificates, SQLite stores, tokens, or local bridge env files.
+.local/enablebanking/
+packages/enablebanking-bridge/.local/
+packages/enablebanking-bridge/.env
+packages/enablebanking-bridge/.env.*
+!packages/enablebanking-bridge/.env.example
+packages/enablebanking-bridge/dist
 packages/api/app/bundle.api.js
 packages/api/app/stats.json
 packages/api/dist
