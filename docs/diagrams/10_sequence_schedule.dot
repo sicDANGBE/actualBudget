@@ -1,0 +1,20 @@
+digraph G {
+graph [rankdir=TB, pad="0.25", nodesep="0.4", ranksep="0.5", fontname="Arial", bgcolor="white"];
+node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=10, width=1.5];
+edge [color="#475569", fontname="Arial", fontsize=9, arrowsize=0.7];
+label="Séquence - Scheduled transaction"; labelloc=t; fontsize=14; fontname="Arial";
+a0 [label="Utilisateur"];
+a1 [label="UI"];
+a2 [label="Schedule Engine"];
+a3 [label="Core"];
+a4 [label="SQLite"];
+a5 [label="Transactions"];
+{ rank=same; a0; a1; a2; a3; a4; a5; }
+a0 -> a1 [label="crée ou relie un schedule"];
+a1 -> a2 [label="schedule/update"];
+a2 -> a4 [label="persist fréquence + règles de post"];
+a2 -> a5 [label="prévisualise occurrences"];
+a0 -> a1 [label="post ou skip"];
+a1 -> a3 [label="schedule/post-transaction / skip-next-date"];
+a3 -> a4 [label="crée ou décale l'occurrence"];
+}

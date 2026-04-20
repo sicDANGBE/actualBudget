@@ -1,0 +1,14 @@
+
+digraph G {
+  graph [pad="0.3", nodesep="0.45", ranksep="0.9", fontname="Arial", bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=11];
+  edge [color="#64748B", fontname="Arial", fontsize=10, arrowsize=0.8];
+  a [label="1. Saisie manuelle\nou import / bank sync", fillcolor="#EEF2FF", color="#A5B4FC"];
+  b [label="2. Normalisation\nformat, payee importé,\ndates, montants", fillcolor="#EEF2FF", color="#A5B4FC"];
+  c [label="3. Application des règles\nordre + spécificité", fillcolor="#ECFDF5", color="#86EFAC"];
+  d [label="4. Résolution métier\npayee, catégorie,\ntransfert, split, schedule", fillcolor="#ECFDF5", color="#86EFAC"];
+  e [label="5. Persistance\ntransactions-batch-update /\ntransaction-add / update", fillcolor="#FEFCE8", color="#FDE68A"];
+  f [label="6. Effets dérivés\nbudgets, balances,\nrapports, autocomplete", fillcolor="#FFF7ED", color="#FDBA74"];
+  g [label="7. Sync optionnel\nvers sync-server", fillcolor="#FDF2F8", color="#F9A8D4"];
+  a -> b -> c -> d -> e -> f -> g;
+}

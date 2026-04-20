@@ -1,0 +1,18 @@
+digraph G {
+graph [rankdir=TB, pad="0.25", nodesep="0.4", ranksep="0.5", fontname="Arial", bgcolor="white"];
+node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=10, width=1.5];
+edge [color="#475569", fontname="Arial", fontsize=9, arrowsize=0.7];
+label="Séquence - Rapprochement bancaire"; labelloc=t; fontsize=14; fontname="Arial";
+a0 [label="Utilisateur"];
+a1 [label="UI"];
+a2 [label="Core"];
+a3 [label="SQLite"];
+{ rank=same; a0; a1; a2; a3; }
+a0 -> a1 [label="ouvre Reconcile et saisit balance cible"];
+a1 -> a2 [label="lit cleared / uncleared totals"];
+a2 -> a3 [label="calcule l'écart"];
+a2 -> a1 [label="affiche la différence"];
+a0 -> a1 [label="marque les opérations cleared"];
+a1 -> a2 [label="transaction-update + état de réconciliation"];
+a2 -> a3 [label="enregistre dernier rapprochement"];
+}
