@@ -1,0 +1,32 @@
+
+digraph G {
+  graph [pad="0.3", nodesep="0.5", ranksep="0.8", fontname="Arial", bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=11];
+  edge [color="#64748B", fontname="Arial", fontsize=10, arrowsize=0.8];
+
+  subgraph cluster_web {
+    label="Mode Web";
+    color="#93C5FD";
+    style="rounded";
+    webui [label="UI React"];
+    webworker [label="Web Worker\nserveur local"];
+    webdb [label="SQLite / DB locale"];
+    webui -> webworker [label="messages"];
+    webworker -> webdb [label="requêtes"];
+  }
+
+  subgraph cluster_electron {
+    label="Mode Electron";
+    color="#C4B5FD";
+    style="rounded";
+    eui [label="UI React"];
+    child [label="Processus Node enfant"];
+    edb [label="SQLite / FS local"];
+    eui -> child [label="WebSocket"];
+    child -> edb [label="requêtes / accès natif"];
+  }
+
+  sync [label="sync-server\noptionnel"];
+  webworker -> sync [style=dashed, label="sync"];
+  child -> sync [style=dashed, label="sync"];
+}

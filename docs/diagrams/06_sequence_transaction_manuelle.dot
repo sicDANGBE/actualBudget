@@ -1,0 +1,19 @@
+digraph G {
+graph [rankdir=TB, pad="0.25", nodesep="0.4", ranksep="0.5", fontname="Arial", bgcolor="white"];
+node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=10, width=1.5];
+edge [color="#475569", fontname="Arial", fontsize=9, arrowsize=0.7];
+label="Séquence - Ajout manuel d'une transaction"; labelloc=t; fontsize=14; fontname="Arial";
+a0 [label="Utilisateur"];
+a1 [label="UI"];
+a2 [label="Rules"];
+a3 [label="Core"];
+a4 [label="SQLite"];
+a5 [label="Budget"];
+{ rank=same; a0; a1; a2; a3; a4; a5; }
+a0 -> a1 [label="saisit date / montant / payee / catégorie"];
+a1 -> a2 [label="autocomplete + apprentissage", style="dashed"];
+a1 -> a3 [label="transaction-add / update"];
+a3 -> a4 [label="persist transaction"];
+a3 -> a5 [label="recalcule soldes / enveloppes"];
+a3 -> a1 [label="registre et totaux mis à jour"];
+}

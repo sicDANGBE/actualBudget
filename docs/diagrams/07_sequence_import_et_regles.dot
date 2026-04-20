@@ -1,0 +1,21 @@
+digraph G {
+graph [rankdir=TB, pad="0.25", nodesep="0.4", ranksep="0.5", fontname="Arial", bgcolor="white"];
+node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#CBD5E1", fontname="Arial", fontsize=10, width=1.5];
+edge [color="#475569", fontname="Arial", fontsize=9, arrowsize=0.7];
+label="Séquence - Import de transactions et application des règles"; labelloc=t; fontsize=14; fontname="Arial";
+a0 [label="Utilisateur"];
+a1 [label="UI"];
+a2 [label="Importer"];
+a3 [label="Rules"];
+a4 [label="Payees"];
+a5 [label="Core"];
+a6 [label="SQLite"];
+{ rank=same; a0; a1; a2; a3; a4; a5; a6; }
+a0 -> a1 [label="importe fichier ou lance bank sync"];
+a1 -> a2 [label="transactions-parse-file / fetch provider"];
+a2 -> a3 [label="évalue conditions / actions"];
+a3 -> a4 [label="match exact / contains / catégorie par défaut"];
+a3 -> a5 [label="construit transactions normalisées"];
+a5 -> a6 [label="transactions-batch-update"];
+a5 -> a1 [label="prévisualisation / validation"];
+}
