@@ -4,14 +4,23 @@ import * as Platform from '@actual-app/core/shared/platform';
 import i18n from 'i18next';
 import resourcesToBackend from 'i18next-resources-to-backend';
 
+import {
+  isDefaultCategoryLanguageSupported,
+  registerDefaultCategoryTranslations,
+} from './budget/defaultCategoryTranslations';
 import { languages } from './languages';
+
+registerDefaultCategoryTranslations();
 
 export const availableLanguages = Platform.isPlaywright
   ? []
   : Object.keys(languages).map(path => path.split('/')[2].split('.')[0]);
 
 const isLanguageAvailable = (language: string) =>
-  Object.hasOwn(languages, `/locale/${language}.json`);
+  Object.hasOwn(languages, `/locale/${language}.json`) ||
+  isDefaultCategoryLanguageSupported(language) ||
+  (typeof i18n.hasResourceBundle === 'function' &&
+    i18n.hasResourceBundle(language, 'translation'));
 
 const loadLanguage = (language: string) => {
   if (!isLanguageAvailable(language)) {
@@ -62,7 +71,7 @@ const resolveLanguage = (language: string) => {
   return undefined;
 };
 
-export const setI18NextLanguage = (language: string | null) => {
+export const setI18NextLanguage = async (language: string | null) => {
   const defaultLanguages = Array.isArray(navigator.languages)
     ? navigator.languages
     : [navigator.language || 'en'];
@@ -89,5 +98,5 @@ export const setI18NextLanguage = (language: string | null) => {
     return; // language is already set
   }
 
-  void i18n.changeLanguage(resolved);
+  await i18n.changeLanguage(resolved);
 };

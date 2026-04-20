@@ -1,5 +1,7 @@
 import * as db from '#server/db';
 
+const startingBalanceCategoryNames = ['starting balances', 'solde initial'];
+
 export async function createPayee(description: string) {
   // Check to make sure no payee already exists with exactly the same
   // name
@@ -16,12 +18,25 @@ export async function createPayee(description: string) {
 }
 
 export async function getStartingBalancePayee() {
-  let category = await db.first<db.DbCategory>(`
-    SELECT * FROM categories
-      WHERE is_income = 1 AND
-      LOWER(name) = 'starting balances' AND
-      tombstone = 0
-  `);
+  let category = await db.first<db.DbCategory>(
+    `
+      SELECT * FROM categories
+      WHERE is_income = 1
+        AND tombstone = 0
+        AND (
+          id = 'cat-income-starting-balances' OR
+          UNICODE_LOWER(name) IN (${startingBalanceCategoryNames
+            .map(() => '?')
+            .join(', ')})
+        )
+      ORDER BY CASE
+        WHEN id = 'cat-income-starting-balances' THEN 0
+        ELSE 1
+      END
+      LIMIT 1
+    `,
+    startingBalanceCategoryNames,
+  );
   if (category === null) {
     category = await db.first<db.DbCategory>(
       'SELECT * FROM categories WHERE is_income = 1 AND tombstone = 0',

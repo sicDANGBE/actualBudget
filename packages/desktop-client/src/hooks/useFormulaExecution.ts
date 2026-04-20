@@ -17,6 +17,7 @@ import type {
 } from '@actual-app/core/types/models';
 import { HyperFormula } from 'hyperformula';
 
+import { translateDefaultCategories } from '#budget/defaultCategoryTranslations';
 import {
   normalizeQueryTimeFrameEnd,
   normalizeQueryTimeFrameStart,
@@ -581,7 +582,9 @@ async function extractQueryCategories(
   const categoryConditions = extractCategoryConditions(
     queryConfig.conditions || [],
   );
-  const { list: allCategories } = await send('get-categories');
+  const { list: allCategories } = translateDefaultCategories(
+    await send('get-categories'),
+  );
   return getCategoriesFromConditions(
     allCategories,
     categoryConditions,

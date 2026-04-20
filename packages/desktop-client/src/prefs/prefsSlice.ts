@@ -13,6 +13,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 import { resetApp } from '#app/appSlice';
+import { categoryQueries } from '#budget/queries';
 import { setI18NextLanguage } from '#i18n';
 import { closeModal } from '#modals/modalsSlice';
 import { createAppAsyncThunk } from '#redux';
@@ -38,7 +39,7 @@ let globalPrefsSaveCount = 0;
 
 export const loadPrefs = createAppAsyncThunk(
   `${sliceName}/loadPrefs`,
-  async (_, { dispatch, getState }) => {
+  async (_, { dispatch, getState, extra: { queryClient } }) => {
     const prefs = await send('load-prefs');
 
     // Remove any modal state if switching between budgets
@@ -71,7 +72,10 @@ export const loadPrefs = createAppAsyncThunk(
     );
 
     // We need to load translations before the app renders
-    setI18NextLanguage(globalPrefs.language ?? '');
+    await setI18NextLanguage(globalPrefs.language ?? '');
+    await queryClient.invalidateQueries({
+      queryKey: categoryQueries.all(),
+    });
 
     return prefs;
   },
@@ -91,7 +95,7 @@ export const savePrefs = createAppAsyncThunk(
 
 export const loadGlobalPrefs = createAppAsyncThunk(
   `${sliceName}/loadGlobalPrefs`,
-  async (_, { dispatch, getState }) => {
+  async (_, { dispatch, getState, extra: { queryClient } }) => {
     let savesBeforeLoad: number;
     let globalPrefs: GlobalPrefs;
     do {
@@ -106,6 +110,10 @@ export const loadGlobalPrefs = createAppAsyncThunk(
         synced: getState().prefs.synced,
       }),
     );
+    await setI18NextLanguage(globalPrefs.language ?? '');
+    await queryClient.invalidateQueries({
+      queryKey: categoryQueries.all(),
+    });
     return globalPrefs;
   },
 );
@@ -119,11 +127,17 @@ export const saveGlobalPrefs = createAppAsyncThunk(
   `${sliceName}/saveGlobalPrefs`,
   async (
     { prefs, onSaveGlobalPrefs }: SaveGlobalPrefsPayload,
-    { dispatch },
+    { dispatch, extra: { queryClient } },
   ) => {
     await send('save-global-prefs', prefs);
     globalPrefsSaveCount++;
     dispatch(mergeGlobalPrefs(prefs));
+    if ('language' in prefs) {
+      await setI18NextLanguage(prefs.language ?? '');
+      await queryClient.invalidateQueries({
+        queryKey: categoryQueries.all(),
+      });
+    }
     onSaveGlobalPrefs?.();
   },
 );
