@@ -20,6 +20,7 @@ COPY packages/plugins-service/package.json packages/plugins-service/package.json
 COPY packages/vite-plugin-peggy/package.json packages/vite-plugin-peggy/package.json
 
 COPY ./bin/package-browser ./bin/package-browser
+COPY ./bin/ensure-translations ./bin/ensure-translations
 
 RUN yarn install
 
