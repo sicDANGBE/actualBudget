@@ -616,7 +616,10 @@ async function createAccount({
     if (hasImportedTransactions) {
       const importResult = await importTransactions({
         accountId: id,
-        transactions: importedTransactions,
+        transactions: importedTransactions.map(transaction => ({
+          ...transaction,
+          account: id,
+        })),
         isPreview: false,
       });
 
@@ -1720,7 +1723,7 @@ async function importTransactions({
   opts,
 }: {
   accountId: AccountEntity['id'];
-  transactions: ImportedAccountTransaction[];
+  transactions: ImportTransactionEntity[];
   isPreview: boolean;
   opts?: ImportTransactionsOpts;
 }): Promise<ImportTransactionsResult> {

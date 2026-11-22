@@ -419,6 +419,8 @@ describe('File import', () => {
         notes: 'Restaurant Schrödingers Katze und Café Ünique',
       },
     ]);
+  });
+
   test('QIF import does not provide a statement balance', async () => {
     const { balance, errors } = await parseFile(
       __dirname + '/../../../mocks/files/data.qif',
