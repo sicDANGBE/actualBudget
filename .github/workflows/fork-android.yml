@@ -1,0 +1,95 @@
+name: Fork - Android APK
+
+# Builds the Android app from this fork and publishes the APK on the
+# `android-latest` GitHub release so it can be downloaded on the phone.
+#
+# Signing: if ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD secrets are set
+# (alias `actual`), a signed release APK is built. Otherwise a debug APK is
+# built (installable, but each build may need an uninstall before updating).
+
+on:
+  push:
+    branches: [master, sync/upstream-2026-11]
+    paths-ignore:
+      - 'docs/**'
+      - 'docs-product/**'
+      - 'upcoming-release-notes/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+concurrency:
+  group: fork-android
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up environment
+        uses: ./.github/actions/setup
+        with:
+          cache: 'false'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Build mobile web app
+        run: yarn build:browser --mobile
+
+      - name: Build APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          export PATH="$ANDROID_HOME/build-tools/36.0.0:$PATH"
+          export ANDROID_VERSION_CODE=$(( $(date -u +%s) / 60 ))
+          mkdir -p dist
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            umask 077
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/actual-android.jks"
+            export ANDROID_KEY_ALIAS=actual
+            export ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+            export NODE_ENV=production
+            yarn workspace mobile-client sync:android
+            cd packages/mobile-client
+            npx cap build android --androidreleasetype APK --signing-type apksigner
+            cd ../..
+            cp packages/mobile-client/android/app/build/outputs/apk/release/app-release-signed.apk dist/actual-fork.apk
+            apksigner verify dist/actual-fork.apk
+          else
+            export NODE_ENV=production
+            yarn workspace mobile-client sync:android
+            (cd packages/mobile-client/android && ./gradlew assembleDebug)
+            cp packages/mobile-client/android/app/build/outputs/apk/debug/app-debug.apk dist/actual-fork.apk
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: actual-fork-android
+          path: dist/actual-fork.apk
+
+      - name: Publish on android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-latest dist/actual-fork.apk \
+            --title "Android (latest build)" \
+            --notes "Build ${GITHUB_SHA::7} du $(date -u +%Y-%m-%d\ %H:%M) UTC" \
+            --target "$GITHUB_SHA" --prerelease

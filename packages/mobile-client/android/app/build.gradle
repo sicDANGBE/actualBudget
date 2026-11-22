@@ -7,7 +7,7 @@ android {
     namespace = "org.actualbudget"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "org.actualbudget"
+        applicationId "online.dgsynthex.actual"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode releaseVersionCode ? releaseVersionCode.toInteger() : 1
